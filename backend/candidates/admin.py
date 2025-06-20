@@ -1,3 +1,5 @@
 from django.contrib import admin
+from .models import Candidate
 
-# Register your models here.
+#registra il modello per renderlo visibile nell'interfaccia di admin
+admin.site.register(Candidate)
