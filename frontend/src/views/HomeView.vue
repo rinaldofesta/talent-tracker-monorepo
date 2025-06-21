@@ -2,25 +2,23 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
-// --- STATO ESISTENTE ---
+// --- STATO ---
 const candidates = ref([])
 const isLoading = ref(true)
 const error = ref(null)
+const newCandidate = ref({ name: '', surname: '', title: '', status: 'Applied' })
 
-// --- NUOVO STATO PER IL FORM ---
-// Usiamo un oggetto reattivo per tenere traccia dei dati del nuovo candidato.
-// I valori iniziali saranno quelli di default del form.
-const newCandidate = ref({
-  name: '',
-  surname: '',
-  title: '',
-  status: 'Applied' // Valore di default per il menu a tendina
-})
+// Stato per la modifica
+const editingCandidateId = ref(null) 
+const editingCandidateData = ref({})
 
-// Definiamo la costante API una volta sola
+// --- COSTANTE API ---
+// Definiamo l'URL base dell'API una sola volta per pulizia e manutenibilità
 const API_URL = 'http://127.0.0.1:8000/api/candidates/'
 
-// Funzione per caricare i dati iniziali
+// --- FUNZIONI API ---
+
+// Carica la lista iniziale di candidati
 const fetchCandidates = async () => {
   isLoading.value = true
   try {
@@ -34,47 +32,60 @@ const fetchCandidates = async () => {
   }
 }
 
-// onMounted ora chiama la nostra funzione per caricare i dati
-onMounted(fetchCandidates)
-
-// Funzione per gestire invio dei form
+// Invia il form per creare un nuovo candidato
 const handleSubmit = async () => {
   try {
-    // Usiamo axios.post per inviare i dati del form al nostro backend.
-    // newCandidate.value contiene i dati inseriti dall'utente grazie a v-model.
     const response = await axios.post(API_URL, newCandidate.value)
-    
-    // Per una UI reattiva, aggiungiamo il nuovo candidato (restituito dal backend)
-    // in cima alla nostra lista locale, senza dover ricaricare tutto.
     candidates.value.unshift(response.data)
-    
-    // Svuotiamo il form per prepararlo a un nuovo inserimento.
     newCandidate.value = { name: '', surname: '', title: '', status: 'Applied' }
   } catch (err) {
     console.error('Errore nella creazione del candidato:', err)
-    // Qui potremmo mostrare un errore all'utente
   }
 }
 
-// Funzione per gestire la cancellazione dei candidati
+// Attiva la modalità di modifica per un candidato
+const startEditing = (candidate) => {
+  // CORREZIONE: Usiamo la 'I' maiuscola per 'Id'
+  editingCandidateId.value = candidate.id
+  editingCandidateData.value = { ...candidate }
+}
+
+// Annulla la modalità di modifica
+const cancelEditing = () => {
+  editingCandidateId.value = null
+  editingCandidateData.value = {}
+}
+
+// Invia le modifiche al backend
+const handleUpdate = async () => {
+  if (!editingCandidateId.value) return
+  try {
+    const response = await axios.patch(`${API_URL}${editingCandidateId.value}/`, editingCandidateData.value)
+    const index = candidates.value.findIndex(c => c.id === editingCandidateId.value)
+    if (index !== -1) {
+      candidates.value[index] = response.data
+    }
+    cancelEditing()
+  } catch (err) {
+    console.error('Errore nell\'aggiornamento del candidato:', err)
+  }
+}
+
+// Cancella un candidato
 const handleDelete = async (candidateId) => {
-  // Chiediamo conferma per la cancellazione
-  if (!window.confirm('Sei sicuro di voler cancellare il candidato?')){
-    return // Se l'utente clicca "Annulla", non fare nulla
+  if (!window.confirm('Sei sicuro di voler cancellare il candidato?')) {
+    return
   }
   try {
-    // Invia una richiesta DELETE all'URL specifico del candidato.
-    // Usiamo i template literal (`) per costruire l'URL dinamicamente.
     await axios.delete(`${API_URL}${candidateId}/`)
-    
-    // Se la cancellazione ha successo, aggiorniamo la nostra lista locale
-    // filtrando e rimuovendo il candidato con l'ID corrispondente.
-    // Questo aggiorna la UI istantaneamente senza ricaricare la pagina.
     candidates.value = candidates.value.filter(c => c.id !== candidateId)
   } catch (err) {
     console.error('Errore nella cancellazione del candidato:', err)
   }
 }
+
+// Hook del ciclo di vita: carica i dati quando il componente viene montato
+onMounted(fetchCandidates)
 </script>
 
 <template>
@@ -87,13 +98,13 @@ const handleDelete = async (candidateId) => {
         <input
           v-model="newCandidate.name"
           type="text"
-          placeholder="Candidate Name"
+          placeholder="Name"
           required
         />
         <input
           v-model="newCandidate.surname"
           type="text"
-          placeholder="Candidate Surname"
+          placeholder="Surname"
           required
         />
         <input
@@ -108,96 +119,187 @@ const handleDelete = async (candidateId) => {
           <option>Hired</option>
           <option>Rejected</option>
         </select>
-        <button type="submit">Add Candidate</button>
+        <button type="submit" class="save-btn">Add Candidate</button>
       </div>
     </form>
 
     <div v-if="isLoading">
-      <p>Caricamento in corso...</p>
+      <p>Loading candidates...</p>
     </div>
     <div v-else-if="error">
       <p style="color: red;">{{ error }}</p>
     </div>
+
     <ul v-else>
       <li v-for="candidate in candidates" :key="candidate.id">
-        <div>
-        <strong>{{ candidate.name }} {{ candidate.surname }} </strong> - {{ candidate.title }}
-        <span>Status: {{ candidate.status }}</span>
+        
+        <div v-if="editingCandidateId === candidate.id" class="editing-form">
+          <input type="text" v-model="editingCandidateData.name" placeholder="Name" />
+          <input type="text" v-model="editingCandidateData.surname" placeholder="Surname" />
+          <input type="text" v-model="editingCandidateData.title" placeholder="Job Title" />
+          <select v-model="editingCandidateData.status">
+            <option>Applied</option>
+            <option>Interview</option>
+            <option>Hired</option>
+            <option>Rejected</option>
+          </select>
+          <div class="actions">
+            <button @click="handleUpdate" class="save-btn">Save</button>
+            <button @click="cancelEditing" class="cancel-btn">Cancel</button>
+          </div>
         </div>
-        <button @click="handleDelete(candidate.id)" class="delete-btn">
-          Delete
-        </button>
+
+        <div v-else class="display-view">
+          <div class="candidate-info">
+            <strong>{{ candidate.name }} {{ candidate.surname }}</strong>
+            <span>{{ candidate.title }}</span>
+            <span class="status-badge">Status: {{ candidate.status }}</span>
+          </div>
+          <div class="actions">
+            <button @click="startEditing(candidate)" class="edit-btn">Edit</button>
+            <button @click="handleDelete(candidate.id)" class="delete-btn">Delete</button>
+          </div>
+        </div>
+
       </li>
     </ul>
   </main>
 </template>
 
 <style scoped>
+/* Stili Generali */
+main {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 20px;
+  color: #333;
+}
 
+h1, h3 {
+  color: #2c3e50;
+  margin-top: 0;
+}
+
+/* Form di Creazione Principale */
 .new-candidate-form {
-  background-color: #180497;
+  background-color: #f8f9fa;
   padding: 20px;
   border-radius: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
+  border: 1px solid #dee2e6;
 }
+
 .form-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
 }
-.form-row input, .form-row select {
-  padding: 8px;
-  border: 1px solid #ccc;
+
+.form-row input,
+.form-row select {
+  padding: 10px;
+  border: 1px solid #ced4da;
   border-radius: 4px;
-}
-.form-row button {
-  padding: 8px 15px;
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.form-row button:hover {
-  background-color: #218838;
+  font-size: 1rem;
+  flex: 1 1 150px; /* Flexbox per responsività */
 }
 
+/* Lista dei Candidati */
 ul {
   list-style: none;
   padding: 0;
 }
+
 li {
-  background-color: #180497;
-  padding: 10px 15px;
-  margin-bottom: 8px;
-  border-radius: 5px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-li span {
-  background-color: #0d7756;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 0.9em;
+  background-color: #ffffff;
+  padding: 20px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  transition: box-shadow 0.2s ease-in-out;
 }
 
-.delete-btn {
-  padding: 5px 10px;
-  background-color: #dc3545;
+li:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Contenitori interni al List Item */
+.display-view,
+.editing-form {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 15px;
+}
+
+.candidate-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-grow: 1;
+}
+
+.candidate-info strong {
+  font-size: 1.2em;
+  color: #212529;
+}
+
+.candidate-info span {
+  color: #6c757d;
+}
+
+.status-badge {
+  background-color: #e9ecef;
+  color: #495057;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85em;
+  font-weight: 500;
+  align-self: flex-start;
+}
+
+/* Form di Modifica In Linea */
+.editing-form input,
+.editing-form select {
+  padding: 8px;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  flex: 1 1 120px;
+}
+
+/* Pulsanti */
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  padding: 8px 16px;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9em;
-}
-.delete-btn:hover {
-  background-color: #c82333;
-}
-li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  font-weight: 500;
+  transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
+button:hover {
+  transform: translateY(-1px);
+}
+
+.save-btn { background-color: #28a745; }
+.save-btn:hover { background-color: #218838; }
+
+.edit-btn { background-color: #007bff; }
+.edit-btn:hover { background-color: #0056b3; }
+
+.delete-btn { background-color: #dc3545; }
+.delete-btn:hover { background-color: #c82333; }
+
+.cancel-btn { background-color: #6c757d; }
+.cancel-btn:hover { background-color: #5a6268; }
 </style>
