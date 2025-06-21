@@ -14,7 +14,7 @@ def candidates_list_create_view(request):
         candidates = Candidate.objects.all().order_by('-created_at')
         serializer = CandidateSerializer(candidates, many=True)
         return Response(serializer.data)
-    
+
     elif request.method == 'POST':
         # Passiamo i dati in arrivo dalla richiesta al serializer
         serializer = CandidateSerializer(data=request.data)
@@ -23,10 +23,10 @@ def candidates_list_create_view(request):
         serializer.is_valid(raise_exception=True)
         # Se la validazione ha successo, .save() crea il nuovo oggetto nel database.
         serializer.save()
-        
+
         # Restituiamo i dati dell'oggetto appena creato e uno stato 201 CREATED.
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
+
 @api_view(['GET', 'PATCH', 'DELETE'])
 def candidate_detail_view(request, pk):
     """
@@ -41,22 +41,22 @@ def candidate_detail_view(request, pk):
     except Candidate.DoesNotExist:
         # se il candidato non esiste, restituiamo un errore 404 Not Found.
         return Response(status=status.HTTP_404_NOT_FOUND)
-    
+
     if request.method == 'GET':
         # se la richiesta è GET, restituiamo i dati di quel singolo candidato
         serializer = CandidateSerializer(candidate)
         return Response(serializer.data)
-    
+
     elif request.method == 'PATCH':
         # se la richiesta è PATCH, passiamo al serializer sia l'istanza che vogliamo aggiornare sia i nuovi dati parziali
         serializer = CandidateSerializer(instance=candidate, data=request.data, partial=True)
-        
+
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        
+
         #restituiamo i dati aggiornati del candidato
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     elif request.method == 'DELETE':
         # se la richiesta è DELETE, cancelliamo l'oggetto nel database.
         candidate.delete()
