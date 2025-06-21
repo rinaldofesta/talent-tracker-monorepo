@@ -9,4 +9,4 @@ class CandidateSerializer(serializers.ModelSerializer):
         model = Candidate
         
         # 2. ISTRUZIONE AGGIUNTIVA: "Includi solo questi campi nella traduzione".
-        fields = ['id', 'name', 'title', 'status', 'created_at']
+        fields = ['id', 'name', 'surname', 'title', 'status', 'created_at']

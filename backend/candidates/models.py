@@ -11,6 +11,7 @@ class Candidate(models.Model):
 
     # CharField è un campo di testo per stringhe di piccole-medie dimensioni.
     name = models.CharField(max_length=100)
+    surname = models.CharField(max_length=100, default='')
     title = models.CharField(max_length=100)
 
     # Usiamo il campo 'choices' per avere un menu a tendina nell'admin di Django.
@@ -25,4 +26,4 @@ class Candidate(models.Model):
         Questa funzione definisce come l'oggetto verrà mostrato, ad esempio,
         nell'interfaccia di amministrazione. Molto utile per la leggibilità.
         """
-        return self.name
+        return f"{self.name} {self.surname}"

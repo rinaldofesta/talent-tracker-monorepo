@@ -12,15 +12,19 @@ const error = ref(null)
 // I valori iniziali saranno quelli di default del form.
 const newCandidate = ref({
   name: '',
+  surname: '',
   title: '',
   status: 'Applied' // Valore di default per il menu a tendina
 })
+
+// Definiamo la costante API una volta sola
+const API_URL = 'http://127.0.0.1:8000/api/candidates/'
 
 // Funzione per caricare i dati iniziali
 const fetchCandidates = async () => {
   isLoading.value = true
   try {
-    const response = await axios.get('http://127.0.0.1:8000/api/candidates/')
+    const response = await axios.get(API_URL)
     candidates.value = response.data
   } catch (err) {
     console.error('Errore nel caricamento dei dati:', err)
@@ -33,22 +37,42 @@ const fetchCandidates = async () => {
 // onMounted ora chiama la nostra funzione per caricare i dati
 onMounted(fetchCandidates)
 
-// --- NUOVA FUNZIONE PER GESTIRE L'INVIO DEL FORM ---
+// Funzione per gestire invio dei form
 const handleSubmit = async () => {
   try {
     // Usiamo axios.post per inviare i dati del form al nostro backend.
     // newCandidate.value contiene i dati inseriti dall'utente grazie a v-model.
-    const response = await axios.post('http://127.0.0.1:8000/api/candidates/', newCandidate.value)
+    const response = await axios.post(API_URL, newCandidate.value)
     
     // Per una UI reattiva, aggiungiamo il nuovo candidato (restituito dal backend)
     // in cima alla nostra lista locale, senza dover ricaricare tutto.
     candidates.value.unshift(response.data)
     
     // Svuotiamo il form per prepararlo a un nuovo inserimento.
-    newCandidate.value = { name: '', title: '', status: 'Applied' }
+    newCandidate.value = { name: '', surname: '', title: '', status: 'Applied' }
   } catch (err) {
     console.error('Errore nella creazione del candidato:', err)
     // Qui potremmo mostrare un errore all'utente
+  }
+}
+
+// Funzione per gestire la cancellazione dei candidati
+const handleDelete = async (candidateId) => {
+  // Chiediamo conferma per la cancellazione
+  if (!window.confirm('Sei sicuro di voler cancellare il candidato?')){
+    return // Se l'utente clicca "Annulla", non fare nulla
+  }
+  try {
+    // Invia una richiesta DELETE all'URL specifico del candidato.
+    // Usiamo i template literal (`) per costruire l'URL dinamicamente.
+    await axios.delete(`${API_URL}${candidateId}/`)
+    
+    // Se la cancellazione ha successo, aggiorniamo la nostra lista locale
+    // filtrando e rimuovendo il candidato con l'ID corrispondente.
+    // Questo aggiorna la UI istantaneamente senza ricaricare la pagina.
+    candidates.value = candidates.value.filter(c => c.id !== candidateId)
+  } catch (err) {
+    console.error('Errore nella cancellazione del candidato:', err)
   }
 }
 </script>
@@ -64,6 +88,12 @@ const handleSubmit = async () => {
           v-model="newCandidate.name"
           type="text"
           placeholder="Candidate Name"
+          required
+        />
+        <input
+          v-model="newCandidate.surname"
+          type="text"
+          placeholder="Candidate Surname"
           required
         />
         <input
@@ -90,15 +120,20 @@ const handleSubmit = async () => {
     </div>
     <ul v-else>
       <li v-for="candidate in candidates" :key="candidate.id">
-        <strong>{{ candidate.name }}</strong> - {{ candidate.title }}
+        <div>
+        <strong>{{ candidate.name }} {{ candidate.surname }} </strong> - {{ candidate.title }}
         <span>Status: {{ candidate.status }}</span>
+        </div>
+        <button @click="handleDelete(candidate.id)" class="delete-btn">
+          Delete
+        </button>
       </li>
     </ul>
   </main>
 </template>
 
 <style scoped>
-/* Aggiungiamo un po' di stile per il nostro form */
+
 .new-candidate-form {
   background-color: #180497;
   padding: 20px;
@@ -141,9 +176,28 @@ li {
   align-items: center;
 }
 li span {
-  background-color: #000000;
+  background-color: #0d7756;
   padding: 3px 8px;
   border-radius: 12px;
   font-size: 0.9em;
 }
+
+.delete-btn {
+  padding: 5px 10px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+.delete-btn:hover {
+  background-color: #c82333;
+}
+li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 </style>

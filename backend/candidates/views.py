@@ -26,3 +26,27 @@ def candidates_list_create_view(request):
         
         # Restituiamo i dati dell'oggetto appena creato e uno stato 201 CREATED.
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+@api_view(['GET', 'DELETE'])
+def candidate_detail_view(request, pk):
+    """
+    una view che gestisce le operazioni su un singolo candidato,
+    identificato dalla sua chiave primaria (pk)
+    """
+    try:
+        #troviamo il candidato nel database usando la chiave primaria (pk)
+        candidate = Candidate.objects.get(pk=pk)
+    except Candidate.DoesNotExist:
+        #se il candidato non esiste, restituiamo un errore 404 Not Found.
+        return Response(status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        #se la richiesta è GET, restituiamo i dati di quel singolo candidato
+        serializer = CandidateSerializer(candidate)
+        return Response(serializer.data)
+    
+    elif request.method == 'DELETE':
+        #se la richiesta è DELETE, cancelliamo l'oggetto nel database.
+        candidate.delete()
+        # e restituiamo una risposta standard 204 No Content
+        return Response(status=status.HTTP_204_NO_CONTENT)
