@@ -1,0 +1,20 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: talent_tracker_backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env.dev
+
+  frontend:
+    build: ./frontend
+    container_name: talent_tracker_frontend
+    ports:
+      - "8080:80" # Mappiamo la porta 80 del container Nginx sulla porta 8080 del nostro computer
